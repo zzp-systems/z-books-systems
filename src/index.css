@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  
+  .font-mono-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media print {
+  nav, .no-print {
+    display: none !important;
+  }
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  .printable-area {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    color: black !important;
+  }
+  .printable-card {
+    border: 1px solid #999 !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}

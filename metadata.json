@@ -1,0 +1,6 @@
+{
+  "name": "Z-Books: Philippine SME Accounting & Payroll",
+  "description": "Zero-cost enterprise accounting, bookkeeping, BIR tax compliance, and statutory payroll management system for Philippine SME manufacturing and retail.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
