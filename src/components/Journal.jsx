@@ -97,7 +97,11 @@ export default function Journal() {
                 <thead><tr><th>Account</th><th>Debit</th><th>Credit</th></tr></thead>
                 <tbody>
                   {entry.lines?.map(l => (
-                    <tr key={l.id}><td>{l.account_code}</td><td className="text-right">{l.debit ? fmt(l.debit) : ''}</td><td className="text-right">{l.credit ? fmt(l.credit) : ''}</td></tr>
+                    <tr key={l.id}>
+                      <td>{l.account_code}</td>
+                      <td className="text-right">{l.debit_centavos ? fmt(l.debit_centavos / 100) : ''}</td>
+                      <td className="text-right">{l.credit_centavos ? fmt(l.credit_centavos / 100) : ''}</td>
+                    </tr>
                   ))}
                 </tbody>
               </table>

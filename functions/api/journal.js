@@ -1,14 +1,14 @@
 // ── GL Journal Entries ──
-// GET  /api/journal              → list entries with lines
+// GET  /api/journal              → list entries with lines (centavos)
 // POST /api/journal              → create draft entry with lines
 // POST /api/journal/:id/post    → post a draft entry
 
 import { audit } from './_audit.js';
+import { toCentavos } from './_tax.js';
 
 export async function onRequestGet({ env }) {
   const entries = await env.DB.prepare('SELECT * FROM journal_entries ORDER BY entry_date DESC, created_at DESC').all();
 
-  // Fetch all lines for these entries
   const entryIds = entries.results.map(e => e.id);
   let linesByEntry = {};
   if (entryIds.length) {
@@ -44,9 +44,13 @@ export async function onRequestPost({ request, env, data, params }) {
   ).bind(id, body.entry_date, body.description || null, body.reference || null, 'Manual', 'Draft').run();
 
   for (const line of body.lines || []) {
+    // Accept either centavos or pesos; prefer centavos
+    const debitC = line.debit_centavos || toCentavos(line.debit || 0);
+    const creditC = line.credit_centavos || toCentavos(line.credit || 0);
     await env.DB.prepare(
-      'INSERT INTO journal_lines (entry_id, account_code, debit, credit, description) VALUES (?,?,?,?,?)'
-    ).bind(id, line.account_code, line.debit || 0, line.credit || 0, line.description || null).run();
+      `INSERT INTO journal_lines (entry_id, account_code, debit, credit, debit_centavos, credit_centavos, description)
+       VALUES (?,?,?,?,?,?,?)`
+    ).bind(id, line.account_code, debitC / 100, creditC / 100, debitC, creditC, line.description || null).run();
   }
 
   await audit(env, data.user, 'CREATE', 'journal_entries', id, `Created manual journal entry`);
