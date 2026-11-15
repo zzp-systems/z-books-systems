@@ -1,5 +1,5 @@
 // functions/api/payments.js — z-books-systems (ARAP)
-import { audit } from '../_audit.js';
+import { audit } from './_audit.js'; // FIXED: Changed from ../ to ./
 
 const AR_ACCOUNT = '1100';      
 const CASH_ACCOUNTS = { Cash: '1000', 'Bank Transfer': '1010', Check: '1010', GCash: '1020' };
@@ -41,7 +41,7 @@ export async function onRequestPost({ request, env, data }) {
     await env.DB.prepare('INSERT INTO journal_lines (entry_id, account_code, debit, credit) VALUES (?,?,?,?)')
       .bind(jeId, AR_ACCOUNT, 0, payAmount).run();
 
-    // 2. Insert into ar_payments (matching your schema)
+    // 2. Insert into ar_payments
     await env.DB.prepare(
       'INSERT INTO ar_payments (id, ar_invoice_id, payment_date, amount, payment_method, reference, journal_entry_id) VALUES (?,?,?,?,?,?,?)'
     ).bind(payId, invoice_id, payment_date || new Date().toISOString().slice(0, 10), payAmount, payment_method || 'Cash', reference || null, jeId).run();

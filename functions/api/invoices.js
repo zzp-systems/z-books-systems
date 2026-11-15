@@ -1,5 +1,5 @@
 // functions/api/invoices.js — z-books-systems (ARAP)
-import { audit } from '../_audit.js';
+import { audit } from './_audit.js'; // FIXED: Changed from ../ to ./
 
 const AR_ACCOUNT = '1100';      
 const REVENUE_ACCOUNT = '4000'; 
@@ -21,7 +21,6 @@ export async function onRequestPost({ request, env, data }) {
   try {
     const body = await request.json();
     
-    // ── Create Invoice Route ──
     const id = crypto.randomUUID();
     const invNum = await generateInvoiceNumber(env, 'AR');
     const amount = body.amount || 0;
