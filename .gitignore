@@ -1,16 +1,6 @@
 node_modules/
-<<<<<<< HEAD
-build/
-dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
-=======
 dist/
 .wrangler/
 .dev.vars
 .env
 *.log
->>>>>>> 3337cde (chore: save local changes before rebase)

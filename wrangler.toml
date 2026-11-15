@@ -1,62 +1,12 @@
-<<<<<<< HEAD
-# =====================================================================
-# Z-BOOKS CLOUDFLARE WRANGLER CONFIGURATION (100% Free-Tier Architecture)
-# Runtime: Cloudflare Pages + Pages Functions (V8 Workers) + D1 Database
-# =====================================================================
-
-name = "z-books-accounting"
-compatibility_date = "2024-11-01"
-pages_build_output_dir = "dist"
-
-# Serverless Distributed SQLite Database Binding
-[[d1_databases]]
-binding = "DB"
-database_name = "zbooks_prod_d1"
-database_id = "00000000-0000-0000-0000-000000000000" # Provisioned via 'npx wrangler d1 create zbooks_prod_d1'
-
-# Optional R2 Object Storage for scanned receipts, invoice PDFs & payslips
-[[r2_buckets]]
-binding = "RECEIPTS_BUCKET"
-bucket_name = "zbooks-receipts-archive"
-
-# Environment Variables & Entity Settings
-[vars]
-ENVIRONMENT = "production"
-ENTITY_NAME = "Jang-Jang Bakeshop (Z-Books Enterprise)"
-ENTITY_TIN = "000-000-000-0000"
-ACCOUNTING_BASIS = "ACCRUAL_PFRS_SME"
-TAX_STATUS = "VAT_REGISTERED"
-CURRENCY = "PHP"
-DEFAULT_VAT_RATE = "0.12"
-SSS_EE_RATE = "0.045"
-SSS_ER_RATE = "0.095"
-PHILHEALTH_RATE = "0.05"
-PAGIBIG_STATUTORY_MAX = "200.00"
-=======
-# ──────────────────────────────────────────────
-# z-books-systems — Cloudflare Pages Configuration
-# Jang-Jang Bakeshop ERP — Accounting / ARAP Module
-# ──────────────────────────────────────────────
-
 name = "z-books-systems"
 compatibility_date = "2026-11-15"
 pages_build_output_dir = "dist"
 
-# ── D1 Database Binding ──
 [[d1_databases]]
 binding = "DB"
 database_name = "jjb-arap-db"
 database_id = "a1c91009-c32d-4f12-97b0-c22cde486a59"
 
-# ── R2 Bucket Binding (shared with CRM + WMS) ──
-# Use path prefix: arap/ for accounting files (invoices, receipts, vouchers)
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "jjb-erp-assets"
-
-# ── Secrets (set via CLI, NOT in this file) ──
-# wrangler pages secret put JWT_SECRET     (shared with CRM + WMS for SSO)
-# wrangler pages secret put SYNC_API_KEY    (shared sync auth key)
-# wrangler pages secret put CRM_API_URL     (for pushing AR invoices back to CRM)
-# wrangler pages secret put WMS_API_URL     (for querying supplier/receiving data)
->>>>>>> 3337cde (chore: save local changes before rebase)
