@@ -1,5 +1,5 @@
 // ── ARAP Sync Endpoints (CRM ↔ ARAP ↔ WMS) ──
-import { audit } from './_audit.js';
+import { audit } from '../_audit.js';
 
 const AR_ACCOUNT = '1100';
 const REVENUE_ACCOUNT = '4000';
