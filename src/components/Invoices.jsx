@@ -13,7 +13,13 @@ export default function Invoices() {
   const fmt = (n) => '₱' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   const getHeaders = () => {
-    const token = localStorage.getItem('z_books_token') || localStorage.getItem('token');
+    // Fallback checks for common token keys used across the apps
+    const token = localStorage.getItem('token') || localStorage.getItem('z_books_token') || localStorage.getItem('jjb_arap_token');
+    
+    if (!token || token === 'null' || token === 'undefined') {
+      throw new Error('No authentication token found. Please log out and log back in.');
+    }
+    
     return {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`
@@ -24,8 +30,14 @@ export default function Invoices() {
     try {
       setLoading(true);
       const res = await fetch('/api/invoices', { headers: getHeaders() });
+      
+      if (res.status === 401) {
+        throw new Error('Session expired or Unauthorized. Please log out and log in again.');
+      }
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to load');
+      if (!res.ok) throw new Error(data.error || 'Failed to load invoices');
+      
       setList(data.invoices || []);
       setError('');
     } catch (err) {
@@ -46,7 +58,7 @@ export default function Invoices() {
         body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create');
+      if (!res.ok) throw new Error(data.error || 'Failed to create invoice');
       
       setShowForm(false); 
       setForm({ customer_name: '', invoice_date: '', due_date: '', amount: '' }); 
@@ -131,7 +143,6 @@ export default function Invoices() {
                     {inv.balance > 0 && (
                       <button className="btn btn-sm" onClick={() => {
                         setShowPay(inv);
-                        // Auto-fill payment date and amount for smoother UX
                         setPay({ ...pay, payment_date: new Date().toISOString().slice(0, 10), amount: inv.balance });
                       }}>Record Payment</button>
                     )}
