@@ -6,15 +6,19 @@ export default function Invoices() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [showPay, setShowPay] = useState(null);
+  const [showPay, setShowPay] = useState(null); // Now stores the whole invoice object
   const [form, setForm] = useState({ customer_name: '', invoice_date: '', due_date: '', amount: '' });
   const [pay, setPay] = useState({ payment_date: '', amount: '', payment_method: 'Cash', reference: '' });
 
   const fmt = (n) => '₱' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
   const load = () => {
-    invoices.list().then(data => setList(data.invoices || [])).catch(err => setError(err.message)).finally(() => setLoading(false));
+    invoices.list()
+      .then(data => setList(data.invoices || []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
   };
+  
   useEffect(load, []);
 
   const handleCreate = async (e) => {
@@ -28,8 +32,10 @@ export default function Invoices() {
   const handlePayment = async (e) => {
     e.preventDefault();
     try {
-      await invoices.recordPayment(showPay, { ...pay, amount: parseFloat(pay.amount) || 0 });
-      setShowPay(null); setPay({ payment_date: '', amount: '', payment_method: 'Cash', reference: '' }); load();
+      await invoices.recordPayment(showPay.id, { ...pay, amount: parseFloat(pay.amount) || 0 });
+      setShowPay(null); 
+      setPay({ payment_date: '', amount: '', payment_method: 'Cash', reference: '' }); 
+      load();
     } catch (err) { setError(err.message); }
   };
 
@@ -73,7 +79,7 @@ export default function Invoices() {
                   <td className="text-right">{fmt(inv.amount)}</td>
                   <td className="text-right">{fmt(inv.balance)}</td>
                   <td><span className={`badge ${inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : inv.status === 'Delivered' ? 'badge-info' : 'badge-warning'}`}>{inv.status}</span></td>
-                  <td>{inv.balance > 0 && <button className="btn btn-sm" onClick={() => setShowPay(inv.id)}>Record Payment</button>}</td>
+                  <td>{inv.balance > 0 && <button className="btn btn-sm" onClick={() => setShowPay(inv)}>Record Payment</button>}</td>
                 </tr>
               ))}
             </tbody>
@@ -83,7 +89,7 @@ export default function Invoices() {
 
       {showPay && (
         <div className="card">
-          <h3 style={{ marginBottom: '16px' }}>Record Payment</h3>
+          <h3 style={{ marginBottom: '16px' }}>Record Payment for <span className="text-primary">{showPay.invoice_number}</span></h3>
           <form onSubmit={handlePayment}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div className="form-group"><label>Payment Date *</label><input type="date" value={pay.payment_date} onChange={e => setPay({...pay, payment_date: e.target.value})} required /></div>
