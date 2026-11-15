@@ -1,38 +1,74 @@
+// src/components/Invoices.jsx — z-books-systems (ARAP)
 import { useState, useEffect } from 'react';
-import { invoices } from '../api.js';
 
 export default function Invoices() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [showPay, setShowPay] = useState(null); // Now stores the whole invoice object
+  const [showPay, setShowPay] = useState(null); 
   const [form, setForm] = useState({ customer_name: '', invoice_date: '', due_date: '', amount: '' });
   const [pay, setPay] = useState({ payment_date: '', amount: '', payment_method: 'Cash', reference: '' });
 
   const fmt = (n) => '₱' + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2 });
 
-  const load = () => {
-    invoices.list()
-      .then(data => setList(data.invoices || []))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+  const getHeaders = () => {
+    const token = localStorage.getItem('z_books_token') || localStorage.getItem('token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  };
+
+  const load = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/invoices', { headers: getHeaders() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load');
+      setList(data.invoices || []);
+      setError('');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
   
-  useEffect(load, []);
+  useEffect(() => { load(); }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await invoices.create({ ...form, amount: parseFloat(form.amount) || 0 });
-      setShowForm(false); setForm({ customer_name: '', invoice_date: '', due_date: '', amount: '' }); load();
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ ...form, amount: parseFloat(form.amount) || 0 })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create');
+      
+      setShowForm(false); 
+      setForm({ customer_name: '', invoice_date: '', due_date: '', amount: '' }); 
+      load();
     } catch (err) { setError(err.message); }
   };
 
   const handlePayment = async (e) => {
     e.preventDefault();
     try {
-      await invoices.recordPayment(showPay.id, { ...pay, amount: parseFloat(pay.amount) || 0 });
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ 
+          invoice_id: showPay.id, 
+          ...pay, 
+          amount: parseFloat(pay.amount) || 0 
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to record payment');
+
       setShowPay(null); 
       setPay({ payment_date: '', amount: '', payment_method: 'Cash', reference: '' }); 
       load();
@@ -55,10 +91,22 @@ export default function Invoices() {
           <h3 style={{ marginBottom: '16px' }}>New AR Invoice</h3>
           <form onSubmit={handleCreate}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group"><label>Customer Name *</label><input value={form.customer_name} onChange={e => setForm({...form, customer_name: e.target.value})} required /></div>
-              <div className="form-group"><label>Amount (₱) *</label><input type="number" step="0.01" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required /></div>
-              <div className="form-group"><label>Invoice Date *</label><input type="date" value={form.invoice_date} onChange={e => setForm({...form, invoice_date: e.target.value})} required /></div>
-              <div className="form-group"><label>Due Date *</label><input type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} required /></div>
+              <div className="form-group">
+                <label htmlFor="customer_name">Customer Name *</label>
+                <input id="customer_name" name="customer_name" value={form.customer_name} onChange={e => setForm({...form, customer_name: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="amount">Amount (₱) *</label>
+                <input id="amount" name="amount" type="number" step="0.01" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="invoice_date">Invoice Date *</label>
+                <input id="invoice_date" name="invoice_date" type="date" value={form.invoice_date} onChange={e => setForm({...form, invoice_date: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="due_date">Due Date *</label>
+                <input id="due_date" name="due_date" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} required />
+              </div>
             </div>
             <button type="submit" className="btn" style={{ marginTop: '16px' }}>Create Invoice</button>
           </form>
@@ -79,7 +127,15 @@ export default function Invoices() {
                   <td className="text-right">{fmt(inv.amount)}</td>
                   <td className="text-right">{fmt(inv.balance)}</td>
                   <td><span className={`badge ${inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : inv.status === 'Delivered' ? 'badge-info' : 'badge-warning'}`}>{inv.status}</span></td>
-                  <td>{inv.balance > 0 && <button className="btn btn-sm" onClick={() => setShowPay(inv)}>Record Payment</button>}</td>
+                  <td>
+                    {inv.balance > 0 && (
+                      <button className="btn btn-sm" onClick={() => {
+                        setShowPay(inv);
+                        // Auto-fill payment date and amount for smoother UX
+                        setPay({ ...pay, payment_date: new Date().toISOString().slice(0, 10), amount: inv.balance });
+                      }}>Record Payment</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -92,10 +148,27 @@ export default function Invoices() {
           <h3 style={{ marginBottom: '16px' }}>Record Payment for <span className="text-primary">{showPay.invoice_number}</span></h3>
           <form onSubmit={handlePayment}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group"><label>Payment Date *</label><input type="date" value={pay.payment_date} onChange={e => setPay({...pay, payment_date: e.target.value})} required /></div>
-              <div className="form-group"><label>Amount (₱) *</label><input type="number" step="0.01" value={pay.amount} onChange={e => setPay({...pay, amount: e.target.value})} required /></div>
-              <div className="form-group"><label>Payment Method</label><select value={pay.payment_method} onChange={e => setPay({...pay, payment_method: e.target.value})}><option>Cash</option><option>Bank Transfer</option><option>Check</option><option>GCash</option></select></div>
-              <div className="form-group"><label>Reference</label><input value={pay.reference} onChange={e => setPay({...pay, reference: e.target.value})} placeholder="Check #, TXN ID" /></div>
+              <div className="form-group">
+                <label htmlFor="payment_date">Payment Date *</label>
+                <input id="payment_date" name="payment_date" type="date" value={pay.payment_date} onChange={e => setPay({...pay, payment_date: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="pay_amount">Amount (₱) *</label>
+                <input id="pay_amount" name="pay_amount" type="number" step="0.01" value={pay.amount} onChange={e => setPay({...pay, amount: e.target.value})} required />
+              </div>
+              <div className="form-group">
+                <label htmlFor="payment_method">Payment Method</label>
+                <select id="payment_method" name="payment_method" value={pay.payment_method} onChange={e => setPay({...pay, payment_method: e.target.value})}>
+                  <option>Cash</option>
+                  <option>Bank Transfer</option>
+                  <option>Check</option>
+                  <option>GCash</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="reference">Reference</label>
+                <input id="reference" name="reference" value={pay.reference} onChange={e => setPay({...pay, reference: e.target.value})} placeholder="Check #, TXN ID" />
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button type="submit" className="btn">Record Payment</button>
