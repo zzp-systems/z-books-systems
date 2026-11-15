@@ -1,12 +1,36 @@
+# ──────────────────────────────────────────────
+# JJB ARAP (Z-Books) — Cloudflare Pages Configuration
+# Jang-Jang Bakeshop ERP — Accounting Module
+# ──────────────────────────────────────────────
+
 name = "z-books-systems"
 compatibility_date = "2026-11-15"
 pages_build_output_dir = "dist"
 
+# ── D1 Database Binding ──
 [[d1_databases]]
 binding = "DB"
 database_name = "jjb-arap-db"
 database_id = "a1c91009-c32d-4f12-97b0-c22cde486a59"
 
+# ── R2 Bucket Binding (shared with CRM + WMS) ──
+# NOTE: "ASSETS" is reserved by Pages — must use a different binding name.
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "jjb-erp-assets"
+
+[env.preview]
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "jjb-arap-db"
+database_id = "a1c91009-c32d-4f12-97b0-c22cde486a59"
+
+[[env.preview.r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "jjb-erp-assets"
+
+# ── Secrets (set via CLI, NOT in this file) ──
+# wrangler pages secret put JWT_SECRET     (shared with CRM + WMS for SSO)
+# wrangler pages secret put SYNC_API_KEY   (shared secret for CRM↔WMS↔ARAP sync auth)
+# wrangler pages secret put WMS_API_URL    (base URL of jjb-wms-app)
+# wrangler pages secret put CRM_API_URL    (base URL of jjb-crm-app)

@@ -9,7 +9,7 @@ export async function onRequestPost({ request, env, data }) {
   if (!file) return json({ error: 'No file provided' }, 400);
 
   const key = `arap/${entityType}/${entityId}/${Date.now()}-${file.name}`;
-  await env.ASSETS.put(key, file.stream(), { httpMetadata: { contentType: file.type } });
+  await env.R2_BUCKET.put(key, file.stream(), { httpMetadata: { contentType: file.type } });
   await audit(env, data.user, 'UPLOAD', entityType, entityId, `Uploaded: ${file.name} → ${key}`);
   return json({ success: true, file_url: `/api/files/${key}`, r2_key: key });
 }
@@ -18,7 +18,7 @@ export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   if (url.pathname.startsWith('/api/files/')) {
     const key = url.pathname.replace('/api/files/', '');
-    const object = await env.ASSETS.get(key);
+    const object = await env.R2_BUCKET.get(key);
     if (!object) return new Response('Not found', { status: 404 });
     const headers = new Headers();
     object.writeHttpMetadata(headers);
