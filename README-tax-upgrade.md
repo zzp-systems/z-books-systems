@@ -37,11 +37,17 @@ npx wrangler d1 execute jjb-arap-db --remote --file=migration-v4-change-trail.sq
 # 1d. Master COA migration (adds description, tax_treatment_notes, account_level columns)
 npx wrangler d1 execute jjb-arap-db --remote --file=migration-v5-coa-master.sql
 
-# 1e. Seed 6 new tax accounts
+# 1e. Entities table migration (customer/supplier lookup for ARAP)
+npx wrangler d1 execute jjb-arap-db --remote --file=migration-v6-entities.sql
+
+# 1f. Seed 6 new tax accounts
 npx wrangler d1 execute jjb-arap-db --remote --file=seed-v2-tax-accounts.sql
 
-# 1f. Seed Master COA — 77 accounts (35 parents + 42 children) with full descriptions
+# 1g. Seed Master COA — 77 accounts (35 parents + 42 children) with full descriptions
 npx wrangler d1 execute jjb-arap-db --remote --file=seed-v3-master-coa.sql
+
+# 1h. Seed 59 customer entities (for ARAP lookup dropdowns)
+npx wrangler d1 execute jjb-arap-db --remote --file=seed-v4-entities.sql
 ```
 
 ### Step 2: Run CRM D1 Migrations + Seeds

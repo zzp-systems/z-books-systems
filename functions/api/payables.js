@@ -162,6 +162,20 @@ export async function onRequestPut({ request, env, data, params }) {
   return json(updated);
 }
 
+// ── Delete AP Invoice (DELETE) ──
+export async function onRequestDelete({ env, data, params }) {
+  const id = params.id;
+  const old = await env.DB.prepare('SELECT * FROM ap_invoices WHERE id = ?').bind(id).first();
+  if (!old) return json({ error: 'Invoice not found' }, 404);
+
+  await env.DB.prepare('DELETE FROM ap_invoices WHERE id = ?').bind(id).run();
+  await env.DB.prepare('DELETE FROM journal_lines WHERE journal_entry_id IN (SELECT id FROM journal_entries WHERE reference = ?)').bind(old.invoice_number).run();
+  await env.DB.prepare('DELETE FROM journal_entries WHERE reference = ?').bind(old.invoice_number).run();
+  await audit(env, data.user, 'DELETE', 'ap_invoices', id, `Deleted AP invoice ${old.invoice_number}`);
+  await recordChanges(env, data.user, 'DELETE', 'ap_invoices', id, old, null);
+  return json({ success: true });
+}
+
 async function recordPayment(env, user, invoiceId, body) {
   const invoice = await env.DB.prepare('SELECT * FROM ap_invoices WHERE id = ?').bind(invoiceId).first();
   if (!invoice) return json({ error: 'Invoice not found' }, 404);

@@ -29,6 +29,12 @@ const FIELD_LABELS = {
     entry_date: 'Entry Date', description: 'Description',
     reference: 'Reference', status: 'Status',
   },
+  entities: {
+    name: 'Entity Name', tin: 'TIN', entity_type: 'Entity Type',
+    is_top_withholding_agent: 'Top Withholding Agent', is_vat_registered: 'VAT Registered',
+    territory: 'Territory', address: 'Address', contact_number: 'Contact Number',
+    email: 'Email', is_active: 'Active',
+  },
 };
 
 // ── Centavos fields (display as pesos) ──

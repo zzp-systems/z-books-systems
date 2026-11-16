@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { payables } from '../api.js';
+import { payables, entities } from '../api.js';
+import ChangeTrailModal from './ChangeTrailModal.jsx';
 
 // ── Centavos helpers ──
 const toPeso = (c) => (c || 0) / 100;
@@ -10,14 +11,19 @@ const VAT_RATE = 0.12;
 
 export default function Payables() {
   const [list, setList] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showPay, setShowPay] = useState(null);
   const [showDetail, setShowDetail] = useState(null);
+  const [editId, setEditId] = useState(null);
+  const [trailEntity, setTrailEntity] = useState(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickAddForm, setQuickAddForm] = useState({ name: '', tin: '', address: '', contact_number: '', email: '' });
 
   const [form, setForm] = useState({
-    supplier_name: '', supplier_tin: '', is_vat_supplier: true,
+    supplier_id: '', supplier_name: '', supplier_tin: '', is_vat_supplier: true,
     invoice_date: '', due_date: '',
     vatable_purchase: '', ewt_atc_code: 'WC158',
   });
@@ -32,14 +38,49 @@ export default function Payables() {
   const apAmount = totalGross - ewtWithheld;
 
   const load = () => {
-    payables.list().then(data => setList(data.invoices || [])).catch(err => setError(err.message)).finally(() => setLoading(false));
+    payables.list().then(data => setList(data.invoices || [])).catch(err => setError(err.message));
+    entities.list('Supplier').then(data => setSuppliers(data.entities || [])).catch(() => {});
   };
-  useEffect(load, []);
+  useEffect(() => { load(); setLoading(false); }, []);
+
+  // ── Supplier lookup: auto-populate TIN + VAT status ──
+  const handleSupplierSelect = (e) => {
+    const id = e.target.value;
+    const sup = suppliers.find(s => s.id === id);
+    if (sup) {
+      setForm({
+        ...form,
+        supplier_id: sup.id,
+        supplier_name: sup.name,
+        supplier_tin: sup.tin || '',
+        is_vat_supplier: sup.is_vat_registered !== 0,
+      });
+    }
+  };
+
+  // ── Quick-add new supplier (popup) ──
+  const handleQuickAdd = async (e) => {
+    e.preventDefault();
+    try {
+      const newSup = await entities.create({ entity_type: 'Supplier', is_vat_registered: 1, ...quickAddForm });
+      setSuppliers(prev => [...prev, newSup]);
+      setForm({
+        ...form,
+        supplier_id: newSup.id,
+        supplier_name: newSup.name,
+        supplier_tin: newSup.tin || '',
+        is_vat_supplier: true,
+      });
+      setShowQuickAdd(false);
+      setQuickAddForm({ name: '', tin: '', address: '', contact_number: '', email: '' });
+    } catch (err) { setError(err.message); }
+  };
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
       await payables.create({
+        supplier_id: form.supplier_id || null,
         supplier_name: form.supplier_name,
         supplier_tin: form.supplier_tin || null,
         is_vat_supplier: form.is_vat_supplier ? 1 : 0,
@@ -47,11 +88,49 @@ export default function Payables() {
         due_date: form.due_date,
         vatable_purchase_centavos: form.is_vat_supplier ? toCent(vatablePurchase) : 0,
         ewt_atc_code: form.is_vat_supplier ? form.ewt_atc_code : null,
-        // amount_centavos = gross (vatable + input VAT) for VAT suppliers, or full amount for Non-VAT
         amount_centavos: form.is_vat_supplier ? toCent(totalGross) : toCent(vatablePurchase),
       });
-      setShowForm(false);
-      setForm({ supplier_name: '', supplier_tin: '', is_vat_supplier: true, invoice_date: '', due_date: '', vatable_purchase: '', ewt_atc_code: 'WC158' });
+      setShowForm(false); setEditId(null);
+      setForm({ supplier_id: '', supplier_name: '', supplier_tin: '', is_vat_supplier: true, invoice_date: '', due_date: '', vatable_purchase: '', ewt_atc_code: 'WC158' });
+      load();
+    } catch (err) { setError(err.message); }
+  };
+
+  // ── Edit payable ──
+  const startEdit = (inv) => {
+    setEditId(inv.id);
+    setShowForm(true);
+    setForm({
+      supplier_id: '', supplier_name: inv.supplier_name, supplier_tin: inv.supplier_tin || '',
+      is_vat_supplier: !!inv.is_vat_supplier,
+      invoice_date: inv.invoice_date, due_date: inv.due_date,
+      vatable_purchase: toPeso(inv.vatable_purchase_centavos || inv.non_vat_purchase_centavos).toFixed(2),
+      ewt_atc_code: inv.ewt_atc_code || 'WC158',
+    });
+  };
+
+  const handleEdit = async (e) => {
+    e.preventDefault();
+    try {
+      await payables.update(editId, {
+        supplier_name: form.supplier_name,
+        supplier_tin: form.supplier_tin || null,
+        is_vat_supplier: form.is_vat_supplier ? 1 : 0,
+        invoice_date: form.invoice_date,
+        due_date: form.due_date,
+        vatable_purchase_centavos: form.is_vat_supplier ? toCent(vatablePurchase) : 0,
+        ewt_atc_code: form.is_vat_supplier ? form.ewt_atc_code : null,
+      });
+      setShowForm(false); setEditId(null);
+      setForm({ supplier_id: '', supplier_name: '', supplier_tin: '', is_vat_supplier: true, invoice_date: '', due_date: '', vatable_purchase: '', ewt_atc_code: 'WC158' });
+      load();
+    } catch (err) { setError(err.message); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this payable? This cannot be undone.')) return;
+    try {
+      await payables.remove(id);
       load();
     } catch (err) { setError(err.message); }
   };
@@ -77,37 +156,50 @@ export default function Payables() {
     <div>
       <div className="page-header flex-between">
         <div><h1>Accounts Payable</h1><p>Supplier invoices and payments — BIR VAT/EWT-compliant</p></div>
-        <button className="btn" onClick={() => setShowForm(!showForm)}>{showForm ? 'Cancel' : '+ New Invoice'}</button>
+        <button className="btn" onClick={() => { setShowForm(!showForm); setEditId(null); }}>{showForm ? 'Cancel' : '+ New Invoice'}</button>
       </div>
 
       {error && <div className="card" style={{ color: 'var(--danger)' }}>{error}</div>}
 
       {showForm && (
         <div className="card">
-          <h3 style={{ marginBottom: '16px' }}>New AP Invoice — VAT / EWT Breakdown</h3>
-          <form onSubmit={handleCreate}>
+          <h3 style={{ marginBottom: '16px' }}>{editId ? 'Edit AP Invoice' : 'New AP Invoice — VAT / EWT Breakdown'}</h3>
+          <form onSubmit={editId ? handleEdit : handleCreate}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group"><label>Supplier Name *</label><input value={form.supplier_name} onChange={e => setForm({...form, supplier_name: e.target.value})} required /></div>
-              <div className="form-group"><label>Supplier TIN</label><input value={form.supplier_tin} onChange={e => setForm({...form, supplier_tin: e.target.value})} placeholder="000-000-000-00000" /></div>
-              <div className="form-group"><label>Invoice Date *</label><input type="date" value={form.invoice_date} onChange={e => setForm({...form, invoice_date: e.target.value})} required /></div>
-              <div className="form-group"><label>Due Date *</label><input type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} required /></div>
+              {/* ── Supplier Lookup (Zoho-style) ── */}
               <div className="form-group">
-                <label>VAT Status</label>
-                <select value={form.is_vat_supplier ? 'vat' : 'non-vat'} onChange={e => setForm({...form, is_vat_supplier: e.target.value === 'vat'})}>
+                <label htmlFor="ap-supplier">Supplier *</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select id="ap-supplier" name="supplier_id" value={form.supplier_id} onChange={handleSupplierSelect} style={{ flex: 1 }}>
+                    <option value="">— Select Supplier —</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button type="button" className="btn btn-sm" title="Quick-add new supplier" onClick={() => setShowQuickAdd(true)}>+ New</button>
+                </div>
+              </div>
+              <div className="form-group">
+                <label htmlFor="ap-supplier-tin">Supplier TIN</label>
+                <input id="ap-supplier-tin" name="supplier_tin" value={form.supplier_tin} onChange={e => setForm({...form, supplier_tin: e.target.value})} placeholder="Auto-populated from lookup" />
+              </div>
+              <div className="form-group"><label htmlFor="ap-date">Invoice Date *</label><input id="ap-date" name="invoice_date" type="date" value={form.invoice_date} onChange={e => setForm({...form, invoice_date: e.target.value})} required /></div>
+              <div className="form-group"><label htmlFor="ap-due">Due Date *</label><input id="ap-due" name="due_date" type="date" value={form.due_date} onChange={e => setForm({...form, due_date: e.target.value})} required /></div>
+              <div className="form-group">
+                <label htmlFor="ap-vat-status">VAT Status</label>
+                <select id="ap-vat-status" name="is_vat_supplier" value={form.is_vat_supplier ? 'vat' : 'non-vat'} onChange={e => setForm({...form, is_vat_supplier: e.target.value === 'vat'})}>
                   <option value="vat">VAT-Registered Supplier (12% Input VAT)</option>
                   <option value="non-vat">Non-VAT Supplier (Farmers / Wet-Market)</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>EWT ATC Code</label>
-                <select value={form.ewt_atc_code} onChange={e => setForm({...form, ewt_atc_code: e.target.value})} disabled={!form.is_vat_supplier}>
+                <label htmlFor="ap-ewt">EWT ATC Code</label>
+                <select id="ap-ewt" name="ewt_atc_code" value={form.ewt_atc_code} onChange={e => setForm({...form, ewt_atc_code: e.target.value})} disabled={!form.is_vat_supplier}>
                   <option value="WC158">WC158 — 1% Goods</option>
                   <option value="WC160">WC160 — 2% Services</option>
                 </select>
               </div>
               <div className="form-group">
-                <label>{form.is_vat_supplier ? 'VATable Purchase (₱, net of VAT) *' : 'Purchase Amount (₱) *'}</label>
-                <input type="number" step="0.01" value={form.vatable_purchase} onChange={e => setForm({...form, vatable_purchase: e.target.value})} required />
+                <label htmlFor="ap-purchase">{form.is_vat_supplier ? 'VATable Purchase (₱, net of VAT) *' : 'Purchase Amount (₱) *'}</label>
+                <input id="ap-purchase" name="vatable_purchase" type="number" step="0.01" value={form.vatable_purchase} onChange={e => setForm({...form, vatable_purchase: e.target.value})} required />
               </div>
             </div>
 
@@ -127,8 +219,31 @@ export default function Payables() {
               </table>
             </div>
 
-            <button type="submit" className="btn" style={{ marginTop: '16px' }}>Create Invoice</button>
+            <button type="submit" className="btn" style={{ marginTop: '16px' }}>{editId ? 'Save Changes' : 'Create Invoice'}</button>
           </form>
+        </div>
+      )}
+
+      {/* ── Quick-Add Supplier Popup ── */}
+      {showQuickAdd && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => setShowQuickAdd(false)}>
+          <div className="card" style={{ maxWidth: '500px', width: '90%' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginBottom: '16px' }}>Quick-Add Supplier</h3>
+            <form onSubmit={handleQuickAdd}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="form-group"><label htmlFor="qa-sup-name">Supplier Name *</label><input id="qa-sup-name" name="name" value={quickAddForm.name} onChange={e => setQuickAddForm({...quickAddForm, name: e.target.value})} required /></div>
+                <div className="form-group"><label htmlFor="qa-sup-tin">TIN</label><input id="qa-sup-tin" name="tin" value={quickAddForm.tin} onChange={e => setQuickAddForm({...quickAddForm, tin: e.target.value})} placeholder="000-000-000-00000" /></div>
+                <div className="form-group"><label htmlFor="qa-sup-contact">Contact Number</label><input id="qa-sup-contact" name="contact_number" value={quickAddForm.contact_number} onChange={e => setQuickAddForm({...quickAddForm, contact_number: e.target.value})} /></div>
+                <div className="form-group"><label htmlFor="qa-sup-email">Email</label><input id="qa-sup-email" name="email" value={quickAddForm.email} onChange={e => setQuickAddForm({...quickAddForm, email: e.target.value})} /></div>
+                <div className="form-group" style={{ gridColumn: '1 / -1' }}><label htmlFor="qa-sup-address">Address</label><input id="qa-sup-address" name="address" value={quickAddForm.address} onChange={e => setQuickAddForm({...quickAddForm, address: e.target.value})} /></div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                <button type="submit" className="btn">Add Supplier</button>
+                <button type="button" className="btn btn-sm" onClick={() => setShowQuickAdd(false)}>Cancel</button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -150,7 +265,14 @@ export default function Payables() {
                   <td className="text-right">{fmtPeso(inv.amount_centavos || toCent(inv.amount))}</td>
                   <td className="text-right">{fmtPeso(inv.balance_centavos || toCent(inv.balance))}</td>
                   <td><span className={`badge ${inv.status === 'Paid' ? 'badge-success' : inv.status === 'Overdue' ? 'badge-danger' : 'badge-warning'}`}>{inv.status}</span></td>
-                  <td>{(inv.balance_centavos || toCent(inv.balance)) > 0 && <button className="btn btn-sm" onClick={() => setShowPay(inv.id)}>Record Payment</button>}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button className="btn btn-sm" title="Edit" onClick={() => startEdit(inv)}>✏️</button>
+                      <button className="btn btn-sm" title="Change Trail" onClick={() => setTrailEntity({ entity_type: 'ap_invoices', entity_id: inv.id, title: `${inv.invoice_number} — ${inv.supplier_name}` })}>📋</button>
+                      <button className="btn btn-sm" title="Delete" onClick={() => handleDelete(inv.id)}>🗑️</button>
+                      {(inv.balance_centavos || toCent(inv.balance)) > 0 && <button className="btn btn-sm" onClick={() => setShowPay(inv.id)}>Pay</button>}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -182,10 +304,10 @@ export default function Payables() {
           <h3 style={{ marginBottom: '16px' }}>Record Payment</h3>
           <form onSubmit={handlePayment}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div className="form-group"><label>Payment Date *</label><input type="date" value={pay.payment_date} onChange={e => setPay({...pay, payment_date: e.target.value})} required /></div>
-              <div className="form-group"><label>Amount (₱) *</label><input type="number" step="0.01" value={pay.amount} onChange={e => setPay({...pay, amount: e.target.value})} required /></div>
-              <div className="form-group"><label>Payment Method</label><select value={pay.payment_method} onChange={e => setPay({...pay, payment_method: e.target.value})}><option>Cash</option><option>Bank Transfer</option><option>Check</option></select></div>
-              <div className="form-group"><label>Reference</label><input value={pay.reference} onChange={e => setPay({...pay, reference: e.target.value})} /></div>
+              <div className="form-group"><label htmlFor="ap-pay-date">Payment Date *</label><input id="ap-pay-date" name="payment_date" type="date" value={pay.payment_date} onChange={e => setPay({...pay, payment_date: e.target.value})} required /></div>
+              <div className="form-group"><label htmlFor="ap-pay-amount">Amount (₱) *</label><input id="ap-pay-amount" name="amount" type="number" step="0.01" value={pay.amount} onChange={e => setPay({...pay, amount: e.target.value})} required /></div>
+              <div className="form-group"><label htmlFor="ap-pay-method">Payment Method</label><select id="ap-pay-method" name="payment_method" value={pay.payment_method} onChange={e => setPay({...pay, payment_method: e.target.value})}><option>Cash</option><option>Bank Transfer</option><option>Check</option></select></div>
+              <div className="form-group"><label htmlFor="ap-pay-ref">Reference</label><input id="ap-pay-ref" name="reference" value={pay.reference} onChange={e => setPay({...pay, reference: e.target.value})} /></div>
             </div>
             <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
               <button type="submit" className="btn">Record Payment</button>
@@ -194,6 +316,9 @@ export default function Payables() {
           </form>
         </div>
       )}
+
+      {/* ── Change Trail Modal ── */}
+      {trailEntity && <ChangeTrailModal entity={trailEntity} onClose={() => setTrailEntity(null)} />}
     </div>
   );
 }
