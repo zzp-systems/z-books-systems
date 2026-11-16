@@ -28,12 +28,12 @@ export default function Login() {
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Username</label>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} required autoFocus />
+            <label htmlFor="arap-login-username">Username</label>
+            <input id="arap-login-username" name="username" type="text" value={username} onChange={e => setUsername(e.target.value)} required autoFocus />
           </div>
           <div className="form-group">
-            <label>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+            <label htmlFor="arap-login-password">Password</label>
+            <input id="arap-login-password" name="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
           </div>
           <button type="submit" className="btn" style={{ width: '100%' }} disabled={loading}>
             {loading ? 'Signing in…' : 'Sign In'}
