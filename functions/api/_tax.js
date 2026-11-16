@@ -10,26 +10,98 @@ export const CWT_RATE_GOODS = 0.01; // 1% Creditable Withholding Tax (deducted b
 export const EWT_RATE_GOODS = 0.01; // 1% Expanded Withholding Tax on goods (WC158)
 export const EWT_RATE_SERVICES = 0.02; // 2% EWT on services (WC160)
 
-// ── GL Account Codes ──
+// ── GL Account Codes (Master COA — 77 accounts) ──
 export const ACCOUNTS = {
+  // Cash
   CASH_ON_HAND:    '1000',
   CASH_IN_BANK:    '1010',
   CASH_GCASH:      '1020',
+  // Receivables
   AR:              '1100',
+  EMPLOYEE_ADVANCES: '1101',  // Child of 1100
+  STAFF_ASSISTANCE_RECV: '1102', // Child of 1100
   CWT:             '1150',  // Creditable Withholding Tax (BIR 2307)
   INPUT_VAT:       '1160',  // Input VAT — Goods & Services
+  SUPPLIES_INV:    '1170',  // Supplies Inventory (Office / Janitorial)
+  ALLOWANCE_DOUBTFUL: '1180', // Allowance for Doubtful Accounts
+  // Inventory
   INVENTORY_RAW:   '1200',
+  RAW_MATERIAL_INPUTS: '1201', // Child of 1200
   INVENTORY_FG:    '1210',
+  TRADING_PURCHASES: '1211',   // Child of 1210
+  // Fixed Assets
+  EQUIPMENT:       '1500',
+  FURNITURE:       '1501',  // Child of 1500
+  TOOLS_MACHINERY: '1502',  // Child of 1500
+  OFFICE_EQUIP:    '1503',  // Child of 1500
+  ACCUM_DEP:       '1510',  // Accumulated Depreciation
+  // Liabilities
   AP:              '2000',
   OUTPUT_VAT:      '2100',  // Output VAT Payable (12% collected)
   EWT_PAYABLE:     '2110',  // Expanded Withholding Tax Payable (1601-EQ)
+  WTAX_COMPENSATION: '2200', // Withholding Tax Payable - Compensation
+  SALARIES_PAYABLE: '2300',
+  // Equity
   OWNERS_CAPITAL:  '3000',
   RETAINED_EARNINGS: '3100',
-  SALES_REVENUE:   '4000',  // Legacy generic (backward compat)
+  // Revenue
+  SALES_REVENUE:   '4000',  // Legacy control account
+  SALES_DISCOUNTS: '4001',  // Child of 4000 (contra-revenue)
   SALES_VATABLE:   '4010',  // Sales Revenue — VATable
   SALES_VAT_EXEMPT:'4020',  // Sales Revenue — VAT-Exempt
   OTHER_INCOME:    '4100',
+  // Expenses — COGS & Production
   COGS:            '5000',
+  RAW_MATERIALS_EXP: '5100',
+  WORKSHOP_CONSUMABLES: '5101', // Child of 5100
+  DIRECT_LABOR:    '5200',
+  // Expenses — Utilities
+  UTILITIES_EXP:   '5300',
+  ELECTRICITY_WATER: '5301',  // Child of 5300
+  TELECOM_INTERNET: '5302',   // Child of 5300
+  // Expenses — Rent
+  RENT_EXPENSE:    '5400',
+  RENT_OFFICE:     '5401',  // Child of 5400
+  // Expenses — Marketing
+  MARKETING_EXP:   '5500',
+  ADVERTISING:     '5501',  // Child of 5500
+  SAMPLES_GIVEAWAYS: '5502', // Child of 5500
+  EVENTS_MEALS:    '5503',  // Child of 5500
+  // Expenses — Salaries
+  SALARIES_EXP:    '5600',
+  SALARIES_WAGES:  '5601',  // Child of 5600
+  DRIVER_ALLOWANCE: '5602', // Child of 5600
+  HELPER_ALLOWANCE: '5603', // Child of 5600
+  EMPLOYEE_MEALS:  '5604',  // Child of 5600
+  EMPLOYEE_MEDICAL: '5605', // Child of 5600
+  EMPLOYEE_DENTAL: '5606', // Child of 5600
+  TEAM_EVENTS:     '5607',  // Child of 5600
+  // Expenses — Transportation
+  TRANSPORT_DISTRIBUTION: '5700',
+  FUEL_OIL:        '5701',  // Child of 5700
+  FREIGHT_OUT:     '5702',  // Child of 5700
+  TRAVEL:          '5703',  // Child of 5700
+  // Expenses — Depreciation & Repairs
+  DEPRECIATION_AMORT: '5800',
+  DEPRECIATION:    '5801',  // Child of 5800
+  REPAIRS_MAINT:   '5810',
+  // Expenses — Taxes & Licenses
+  TAXES_LICENSES:  '5820',
+  // Expenses — Other
+  OTHER_EXPENSES:  '5900',
+  VEHICLE_REPAIRS: '5901',  // Child of 5900
+  POSTAGE:         '5902',  // Child of 5900
+  BUILDING_REPAIRS: '5903', // Child of 5900
+  JANITORIAL:      '5904',  // Child of 5900
+  TOOLS_CONSUMABLES: '5905', // Child of 5900
+  OFFICE_SUPPLIES: '5906',  // Child of 5900
+  PRINTING:         '5907', // Child of 5900
+  BANK_CHARGES:    '5908',  // Child of 5900
+  LICENSES_PERMITS: '5909', // Child of 5900
+  FINES_PENALTIES:  '5910', // Child of 5900
+  MISC_EXPENSE:    '5911',  // Child of 5900
+  RELIGIOUS_WORSHIP: '5990', // Child of 5900
+  EVANGELISM_CSR:  '5991',  // Child of 5900
 };
 
 // ── Cash account mapping by payment method ──

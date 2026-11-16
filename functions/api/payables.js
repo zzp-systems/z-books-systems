@@ -4,6 +4,7 @@
 // POST   /api/payables/:id/payment  → record payment (auto GL: Debit AP, Credit Cash)
 
 import { audit } from './_audit.js';
+import { recordChanges } from './_changeTrail.js';
 import {
   ACCOUNTS, CASH_ACCOUNTS, computeAPtaxBreakdown,
   createJournalEntry, toCentavos,
@@ -91,8 +92,74 @@ export async function onRequestPost({ request, env, data, params }) {
 
   await audit(env, data.user, 'CREATE', 'ap_invoices', id,
     `Created AP invoice ${invNum} for ${body.supplier_name} — VAT: ${tax.is_vat_supplier ? 'Yes' : 'No'}, EWT: ${(tax.ewt_withheld_centavos/100).toFixed(2)}`);
+
+  await recordChanges(env, data.user, 'CREATE', 'ap_invoices', id, null, {
+    supplier_name: body.supplier_name, supplier_tin: body.supplier_tin,
+    is_vat_supplier: tax.is_vat_supplier, invoice_date: body.invoice_date, due_date: body.due_date,
+    vatable_purchase_centavos: tax.vatable_purchase_centavos,
+    non_vat_purchase_centavos: tax.non_vat_purchase_centavos,
+    input_vat_centavos: tax.input_vat_centavos,
+    ewt_atc_code: tax.ewt_atc_code, ewt_withheld_centavos: tax.ewt_withheld_centavos,
+    status: 'Open',
+  });
+
   const invoice = await env.DB.prepare('SELECT * FROM ap_invoices WHERE id = ?').bind(id).first();
   return json(invoice, 201);
+}
+
+// ── Edit AP Invoice (PUT) ──
+export async function onRequestPut({ request, env, data, params }) {
+  const id = params.id;
+  const body = await request.json();
+  const old = await env.DB.prepare('SELECT * FROM ap_invoices WHERE id = ?').bind(id).first();
+  if (!old) return json({ error: 'Invoice not found' }, 404);
+
+  const updates = {};
+  const fields = ['supplier_name', 'supplier_tin', 'is_vat_supplier', 'invoice_date', 'due_date',
+    'ewt_atc_code', 'status'];
+  for (const f of fields) {
+    if (body[f] !== undefined) updates[f] = body[f];
+  }
+
+  // If purchase amounts are being edited, recompute tax
+  if (body.vatable_purchase_centavos !== undefined || body.input_vat_centavos !== undefined ||
+      body.non_vat_purchase_centavos !== undefined || body.ewt_withheld_centavos !== undefined) {
+    const isVat = body.is_vat_supplier !== undefined ? (body.is_vat_supplier ? 1 : 0) : old.is_vat_supplier;
+    const tax = computeAPtaxBreakdown({
+      amount_centavos: (body.vatable_purchase_centavos ?? old.vatable_purchase_centavos) +
+                       (body.input_vat_centavos ?? old.input_vat_centavos) +
+                       (body.non_vat_purchase_centavos ?? old.non_vat_purchase_centavos),
+      is_vat_supplier: isVat,
+      vatable_purchase_centavos: body.vatable_purchase_centavos ?? old.vatable_purchase_centavos,
+      input_vat_centavos: body.input_vat_centavos ?? old.input_vat_centavos,
+      ewt_atc_code: body.ewt_atc_code ?? old.ewt_atc_code,
+    });
+    updates.vatable_purchase_centavos = tax.vatable_purchase_centavos;
+    updates.non_vat_purchase_centavos = tax.non_vat_purchase_centavos;
+    updates.input_vat_centavos = tax.input_vat_centavos;
+    updates.ewt_atc_code = tax.ewt_atc_code;
+    updates.ewt_withheld_centavos = tax.ewt_withheld_centavos;
+    updates.amount_centavos = tax.ap_amount_centavos;
+    if ((old.amount_paid_centavos || 0) === 0) {
+      updates.balance_centavos = tax.ap_amount_centavos;
+      updates.balance = tax.ap_amount_centavos / 100;
+      updates.amount = tax.ap_amount_centavos / 100;
+    }
+  }
+
+  const setClauses = Object.keys(updates).map(k => `${k} = ?`);
+  const setValues = Object.values(updates);
+  setClauses.push("updated_at = datetime('now')");
+
+  await env.DB.prepare(
+    `UPDATE ap_invoices SET ${setClauses.join(', ')} WHERE id = ?`
+  ).bind(...setValues, id).run();
+
+  await audit(env, data.user, 'UPDATE', 'ap_invoices', id, `Edited AP invoice ${old.invoice_number}`);
+  await recordChanges(env, data.user, 'UPDATE', 'ap_invoices', id, old, updates);
+
+  const updated = await env.DB.prepare('SELECT * FROM ap_invoices WHERE id = ?').bind(id).first();
+  return json(updated);
 }
 
 async function recordPayment(env, user, invoiceId, body) {

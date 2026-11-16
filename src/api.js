@@ -30,12 +30,14 @@ export const dashboard = {
 export const invoices = {
   list: (params = '') => request(`/invoices${params}`),
   create: (data) => request('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/invoices/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   recordPayment: (id, data) => request(`/invoices/${id}/payment`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const payables = {
   list: (params = '') => request(`/payables${params}`),
   create: (data) => request('/payables', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => request(`/payables/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   recordPayment: (id, data) => request(`/payables/${id}/payment`, { method: 'POST', body: JSON.stringify(data) }),
 };
 
@@ -48,6 +50,13 @@ export const journal = {
 export const accounts = {
   list: () => request('/chart-of-accounts'),
   create: (data) => request('/chart-of-accounts', { method: 'POST', body: JSON.stringify(data) }),
+  update: (code, data) => request(`/chart-of-accounts/${code}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (code) => request(`/chart-of-accounts/${code}`, { method: 'DELETE' }),
+};
+
+export const changeTrail = {
+  list: (entityType, entityId) => request(`/change-trail?entity_type=${entityType}&entity_id=${entityId}`),
+  recent: () => request('/change-trail'),
 };
 
 export const sync = {
